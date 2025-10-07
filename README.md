@@ -55,13 +55,13 @@ uv run oidc-auth \
 **Run modes**
 ```bash
 # Normal mode (headless browser)
-uv run oidc-auth --strategy egi --headless ...
+uv run oidc-auth --headless ...
 
 # Debug mode (headless browser with screenshots and verbose logging)
-uv run oidc-auth --strategy egi --debug --headless ...
+uv run oidc-auth --debug --headless ...
 
 # Debug mode without headless (visible browser with screenshots and verbose logging)
-uv run oidc-auth --strategy egi --debug
+uv run oidc-auth --debug ...
 ```
 
 **Results resemble**
