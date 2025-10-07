@@ -29,7 +29,7 @@ uv run playwright install chromium
 
 ### CLI
 
-**Simple form (default):**
+**Simple form (default)**
 ```bash
 uv run oidc-auth \
   --issuer https://keycloak.example.com/auth/realms/realm \
@@ -40,7 +40,7 @@ uv run oidc-auth \
   --headless
 ```
 
-**EGI Check-in:**
+**EGI Check-in**
 ```bash
 uv run oidc-auth \
   --issuer https://aai-dev.egi.eu/auth/realms/egi \
@@ -52,7 +52,7 @@ uv run oidc-auth \
   --headless
 ```
 
-**Run modes:**
+**Run modes**
 ```bash
 # Normal mode (headless browser)
 uv run oidc-auth --strategy egi --headless ...
@@ -64,9 +64,13 @@ uv run oidc-auth --strategy egi --debug --headless ...
 uv run oidc-auth --strategy egi --debug
 ```
 
+**Results resemble**
+![](./images/result.png)
+
+
 ### Python API
 
-**Simple form:**
+**Simple form**
 ```python
 from oidc_auth_client import OIDCAuthClient
 
@@ -82,7 +86,7 @@ tokens = client.get_tokens()
 print(tokens['access_token'])
 ```
 
-**EGI Check-in:**
+**EGI Check-in**
 ```python
 from oidc_auth_client import OIDCAuthClient
 from oidc_auth_client.strategies import EGIStrategy
@@ -99,7 +103,7 @@ client = OIDCAuthClient(
 tokens = client.get_tokens()
 ```
 
-**Custom strategy:**
+**Custom strategy**
 ```python
 from oidc_auth_client.strategies import AuthStrategy
 
