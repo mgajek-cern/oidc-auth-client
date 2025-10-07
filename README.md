@@ -12,8 +12,9 @@ Automated OIDC authentication client with PKCE support for any Keycloak or OAuth
 
 ## Prerequisites
 
+Install [uv package manager](https://docs.astral.sh/uv/getting-started/installation/), e.g. Standalone installer for `macOS` or `Linux`:
+
 ```bash
-# Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 ```
