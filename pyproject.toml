@@ -1,0 +1,17 @@
+[project]
+name = "oidc-auth-client"
+version = "0.1.0"
+description = "OIDC authorization code flow automation with PKCE and Playwright-based browser control"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "playwright>=1.40.0",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+oidc-auth = "oidc_auth_client.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
