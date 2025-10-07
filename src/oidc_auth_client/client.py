@@ -6,6 +6,8 @@ import requests
 from requests.auth import HTTPBasicAuth
 from playwright.sync_api import sync_playwright
 
+from .strategies import SimpleFormStrategy
+
 
 class OIDCAuthClient:
     def __init__(
@@ -17,20 +19,20 @@ class OIDCAuthClient:
         password,
         redirect_uri="https://google.com",
         scope="openid profile email",
-        identity_provider=None,
+        auth_strategy=None,
     ):
         """
         Initialize OIDC Authentication Client
         
         Args:
-            issuer_url: OIDC issuer URL (e.g., https://aai-dev.egi.eu/auth/realms/egi)
+            issuer_url: OIDC issuer URL
             client_id: OAuth2 client ID
             client_secret: OAuth2 client secret
             username: User username
             password: User password
             redirect_uri: OAuth2 redirect URI
             scope: OAuth2 scopes
-            identity_provider: Identity provider name to select (optional)
+            auth_strategy: AuthStrategy instance (defaults to SimpleFormStrategy)
         """
         self.issuer_url = issuer_url.rstrip('/')
         self.client_id = client_id
@@ -39,7 +41,7 @@ class OIDCAuthClient:
         self.password = password
         self.redirect_uri = redirect_uri
         self.scope = scope
-        self.identity_provider = identity_provider
+        self.auth_strategy = auth_strategy or SimpleFormStrategy()
         
     def generate_pkce(self):
         """Generate PKCE code verifier and challenge"""
@@ -66,44 +68,61 @@ class OIDCAuthClient:
         }
         return f"{self.issuer_url}/protocol/openid-connect/auth?{urlencode(auth_params)}"
     
-    def automate_login(self, auth_url, headless=True):
-        """Automate the login process and get authorization code"""
+    def automate_login(self, auth_url, headless=True, debug=False):
+        """Automate the login process using the configured strategy"""
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=headless)
+            browser = p.chromium.launch(
+                headless=headless,
+                slow_mo=500 if debug else 0
+            )
             page = browser.new_page()
             
-            # Navigate to auth URL
-            page.goto(auth_url)
-            page.wait_for_load_state('networkidle')
-            
-            # Select identity provider if specified
-            if self.identity_provider:
-                page.click(f'text={self.identity_provider}')
-            
-            # Wait for login form
-            page.wait_for_selector('input[name="username"]', timeout=10000)
-            
-            # Fill in credentials
-            page.fill('input[name="username"]', self.username)
-            page.fill('input[name="password"]', self.password)
-            
-            # Click login button
-            page.click('input[type="submit"], button[type="submit"]')
-            
-            # Wait for redirect with the code
-            page.wait_for_url(f'{self.redirect_uri}*', timeout=15000)
-            
-            # Extract the authorization code from URL
-            current_url = page.url
-            parsed_url = urlparse(current_url)
-            query_params = parse_qs(parsed_url.query)
-            
-            auth_code = query_params.get('code', [None])[0]
-            state = query_params.get('state', [None])[0]
-            
-            browser.close()
-            
-            return auth_code, state
+            try:
+                # Navigate to auth URL
+                print("📍 Navigating to authorization URL...")
+                page.goto(auth_url)
+                page.wait_for_load_state('networkidle')
+                
+                if debug:
+                    page.screenshot(path='debug/debug_step0_initial.png')
+                    print(f"   Current URL: {page.url}")
+                
+                # Enable debug mode in strategy if supported
+                if hasattr(self.auth_strategy, 'debug'):
+                    self.auth_strategy.debug = debug
+                
+                # Use strategy to perform login
+                self.auth_strategy.login(page, self.username, self.password)
+                
+                # Redirected with authorization code
+                print("📍 Redirected...")
+                
+                # Extract authorization code
+                current_url = page.url
+                parsed_url = urlparse(current_url)
+                query_params = parse_qs(parsed_url.query)
+                
+                auth_code = query_params.get('code', [None])[0]
+                state = query_params.get('state', [None])[0]
+                
+                if not auth_code:
+                    raise Exception(f"No authorization code in URL: {current_url}")
+                
+                print(f"   ✓ Authorization code extracted")
+                
+                if debug:
+                    page.screenshot(path='debug/debug_final_redirect.png')
+                    print(f"   Final URL: {current_url}")
+                
+                return auth_code, state
+                
+            except Exception as e:
+                page.screenshot(path='debug/debug_error.png')
+                print(f"\n❌ Error at: {page.url}")
+                print(f"   Screenshot: debug/debug_error.png")
+                raise
+            finally:
+                browser.close()
     
     def exchange_code_for_tokens(self, auth_code, code_verifier):
         """Exchange authorization code for tokens"""
@@ -125,45 +144,24 @@ class OIDCAuthClient:
         else:
             raise Exception(f"Token exchange failed: {response.text}")
     
-    def get_tokens(self, headless=True, verbose=True):
-        """
-        Complete automated flow to get tokens
-        
-        Args:
-            headless: Run browser in headless mode
-            verbose: Print progress information
-            
-        Returns:
-            dict: Token response containing access_token, id_token, etc.
-        """
-        # Generate PKCE values
+    def get_tokens(self, headless=True, verbose=True, debug=False):
+        """Complete automated PKCE flow to get tokens"""
         code_verifier, code_challenge = self.generate_pkce()
         state = secrets.token_urlsafe(16)
         
         if verbose:
-            print(f"Code Verifier: {code_verifier}")
-            print(f"State: {state}\n")
+            print(f"Code Verifier: {code_verifier}\n")
         
-        # Create auth URL
         auth_url = self.create_auth_url(code_challenge, state)
-        if verbose:
-            print(f"Authorization URL: {auth_url}\n")
-        
-        # Automate login and get code
-        if verbose:
-            print("Starting automated login...")
-        auth_code, returned_state = self.automate_login(auth_url, headless)
-        
-        if not auth_code:
-            raise Exception("Failed to get authorization code")
         
         if verbose:
-            print(f"Authorization Code: {auth_code}")
-            print(f"State matches: {state == returned_state}\n")
+            print("Starting automated login...\n")
         
-        # Exchange code for tokens
+        auth_code, returned_state = self.automate_login(auth_url, headless, debug)
+        
         if verbose:
-            print("Exchanging code for tokens...")
+            print(f"\nState matches: {state == returned_state}")
+            print("Exchanging code for tokens...\n")
+        
         tokens = self.exchange_code_for_tokens(auth_code, code_verifier)
-        
         return tokens
