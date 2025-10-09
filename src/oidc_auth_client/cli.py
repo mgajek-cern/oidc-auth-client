@@ -48,11 +48,11 @@ def main():
         )
         
         print("\n✅ SUCCESS! Tokens received:")
-        print(f"Access Token: {tokens['access_token'][:50]}...")
+        print(f"Access Token: {tokens['access_token']}")
         print(f"Token Type: {tokens['token_type']}")
         print(f"Expires In: {tokens['expires_in']} seconds")
         if 'id_token' in tokens:
-            print(f"ID Token: {tokens['id_token'][:50]}...")
+            print(f"ID Token: {tokens['id_token']}")
         
         return 0
         
